@@ -4,7 +4,9 @@ Production-ready API for comprehensive natural disaster risk analysis in Germany
 """
 
 import asyncio
+import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
@@ -12,7 +14,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -23,6 +25,13 @@ from services.natural_disaster_service import NaturalDisasterService
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -38,6 +47,23 @@ class AddressRequest(BaseModel):
         description="Address to analyze (German addresses preferred)",
         examples=["Marienplatz 1, 80331 München, Deutschland"],
     )
+
+    @field_validator('address')
+    @classmethod
+    def validate_address(cls, v: str) -> str:
+        """Validate and sanitize address input."""
+        # Strip whitespace
+        v = v.strip()
+
+        # Check minimum length after stripping
+        if len(v) < 5:
+            raise ValueError("Adresse muss mindestens 5 Zeichen lang sein")
+
+        # Check if address contains at least one alphanumeric character
+        if not any(c.isalnum() for c in v):
+            raise ValueError("Adresse muss mindestens ein alphanumerisches Zeichen enthalten")
+
+        return v
 
 
 class CoordinatesResponse(BaseModel):
@@ -148,13 +174,44 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# CORS Configuration
+# For production, set ALLOWED_ORIGINS in .env to your frontend domain(s)
+# Example: ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "*")
+allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=allowed_origins,
+    allow_credentials=True if allowed_origins != ["*"] else False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all incoming requests with timing."""
+    start_time = time.time()
+
+    # Log request
+    logger.info(
+        f"Request started: {request.method} {request.url.path}",
+        extra={"client": request.client.host if request.client else "unknown"}
+    )
+
+    # Process request
+    response = await call_next(request)
+
+    # Log response with duration
+    duration_ms = (time.time() - start_time) * 1000
+    logger.info(
+        f"Request completed: {request.method} {request.url.path} "
+        f"- Status: {response.status_code} - Duration: {duration_ms:.2f}ms"
+    )
+
+    return response
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -442,7 +499,21 @@ async def analyze_address_legacy(
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Global exception handler."""
+    """Global exception handler with improved logging."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Log the error with full context
+    logger.error(
+        f"Unhandled exception: {type(exc).__name__}: {str(exc)}",
+        exc_info=True,
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "client": request.client.host if request.client else "unknown",
+        }
+    )
+
     return JSONResponse(
         status_code=500,
         content={

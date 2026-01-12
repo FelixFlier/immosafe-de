@@ -11,6 +11,7 @@ from typing import TypedDict, Optional
 
 import httpx
 import numpy as np
+from cachetools import TTLCache
 
 logger = logging.getLogger(__name__)
 
@@ -240,11 +241,11 @@ class NaturalDisasterService:
     ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
     FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
     
-    # In-memory caches
-    _storm_cache: dict[tuple[float, float], StormRiskData] = {}
-    _fire_cache: dict[tuple[float, float], FireRiskData] = {}
-    _temp_cache: dict[tuple[float, float], TemperatureRiskData] = {}
-    _hail_cache: dict[tuple[float, float], HailRiskData] = {}
+    # In-memory caches with TTL (1 hour) and max size (500 entries each)
+    _storm_cache = TTLCache(maxsize=500, ttl=3600)
+    _fire_cache = TTLCache(maxsize=500, ttl=3600)
+    _temp_cache = TTLCache(maxsize=500, ttl=3600)
+    _hail_cache = TTLCache(maxsize=500, ttl=3600)
     
     @staticmethod
     def _cache_key(lat: float, lng: float) -> tuple[float, float]:

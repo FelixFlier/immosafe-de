@@ -25,8 +25,8 @@ export default function RiskCard({ data, loading, address }) {
     
     setIsDownloading(true);
     try {
-      const response = await fetch(`http://localhost:8001/api/report?address=${encodeURIComponent(address)}`);
-      
+      const response = await fetch(`/api/report?address=${encodeURIComponent(address)}`);
+
       if (!response.ok) {
         throw new Error('Failed to generate report');
       }
@@ -337,15 +337,6 @@ export default function RiskCard({ data, loading, address }) {
               </p>
             </div>
           </div>
-        )}
-
-        {isPremiumUnlocked && (
-          <button 
-            onClick={handleUnlockClick}
-            className="w-full mt-3 text-xs text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            (Demo: Click to re-lock)
-          </button>
         )}
       </section>
     </motion.div>

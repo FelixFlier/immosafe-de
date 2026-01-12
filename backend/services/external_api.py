@@ -11,6 +11,7 @@ from typing import TypedDict
 
 import httpx
 import numpy as np
+from cachetools import TTLCache
 
 # Configure structured logging
 logging.basicConfig(
@@ -100,10 +101,10 @@ class GeoService:
     
     GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json"
     ELEVATION_URL = "https://maps.googleapis.com/maps/api/elevation/json"
-    
-    # Class-level cache for geocoding results
-    _geocoding_cache: dict[str, Coordinates] = {}
-    _elevation_cache: dict[tuple[float, float], float] = {}
+
+    # Class-level cache with TTL (1 hour) and max size (1000 entries)
+    _geocoding_cache = TTLCache(maxsize=1000, ttl=3600)
+    _elevation_cache = TTLCache(maxsize=1000, ttl=3600)
     
     def __init__(self) -> None:
         self._api_key = os.getenv("MAPS_API_KEY", "")
@@ -213,8 +214,8 @@ class GeoService:
             logger.error(f"Elevation API failed: {e}. Using safe default 0.0m")
             return 0.0
     
-    # Terrain analysis cache
-    _terrain_cache: dict[tuple[float, float], TerrainData] = {}
+    # Terrain analysis cache with TTL (1 hour) and max size (500 entries)
+    _terrain_cache = TTLCache(maxsize=500, ttl=3600)
     
     async def analyze_terrain(self, lat: float, lng: float, radius_m: float = 100.0) -> TerrainData:
         """
@@ -337,9 +338,9 @@ class WeatherService:
     DEFAULT_MAX_RAINFALL: float = 0.0
     DEFAULT_FORECAST_SUM: float = 0.0
     
-    # Class-level cache for weather data
-    _flood_risk_cache: dict[tuple[float, float], FloodRiskData] = {}
-    _forecast_cache: dict[tuple[float, float], ForecastData] = {}
+    # Class-level cache for weather data with TTL (30 minutes for forecasts, 1 hour for historical)
+    _flood_risk_cache = TTLCache(maxsize=1000, ttl=3600)
+    _forecast_cache = TTLCache(maxsize=500, ttl=1800)
     
     async def get_flood_risk_data(self, lat: float, lng: float) -> FloodRiskData:
         """

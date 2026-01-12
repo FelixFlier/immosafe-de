@@ -37,7 +37,7 @@ export default function ComprehensiveRiskCard({ data, loading, address }) {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading PDF:', error);
-      alert('PDF-Export ist in der Demo nicht verfügbar.');
+      alert('PDF-Export konnte nicht generiert werden. Bitte versuchen Sie es später erneut.');
     } finally {
       setIsDownloading(false);
     }
@@ -259,15 +259,6 @@ export default function ComprehensiveRiskCard({ data, loading, address }) {
                   </p>
                 </div>
               </div>
-            )}
-
-            {isPremiumUnlocked && (
-              <button 
-                onClick={() => setIsPremiumUnlocked(false)}
-                className="w-full mt-3 text-xs text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                (Demo: Klicken zum Sperren)
-              </button>
             )}
           </motion.div>
         )}
