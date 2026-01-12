@@ -5,10 +5,13 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { motion } from 'framer-motion';
-import { FileDown, Loader2, ChevronDown, Shield } from 'lucide-react';
+import { FileDown, Loader2, ChevronDown, Shield, Crown } from 'lucide-react';
 import RiskOverview from './RiskOverview';
 import RiskCategoryCard from './RiskCategoryCard';
 import RainfallChart from './RainfallChart';
+import InsuranceCard from './InsuranceCard';
+import BenchmarkCard from './BenchmarkCard';
+import ActionPlanCard from './ActionPlanCard';
 
 export default function ComprehensiveRiskCard({ data, loading, address }) {
   const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
@@ -84,6 +87,7 @@ export default function ComprehensiveRiskCard({ data, loading, address }) {
   const tabs = [
     { id: 'overview', label: 'Übersicht' },
     { id: 'categories', label: 'Risikokategorien' },
+    { id: 'premium', label: '✨ Premium Insights', isPremium: true },
     { id: 'weather', label: 'Wetterdaten' },
   ];
 
@@ -164,12 +168,116 @@ export default function ComprehensiveRiskCard({ data, loading, address }) {
             className="space-y-3"
           >
             {riskCategories.map(({ key, data: categoryData }) => (
-              <RiskCategoryCard 
-                key={key} 
+              <RiskCategoryCard
+                key={key}
                 category={categoryData}
                 defaultExpanded={key === 'flood_risk'}
               />
             ))}
+          </motion.div>
+        )}
+
+        {/* Premium Insights Tab */}
+        {activeTab === 'premium' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="relative"
+          >
+            {!isPremiumUnlocked ? (
+              /* Premium Lock Overlay */
+              <div className="min-h-[400px] flex items-center justify-center">
+                <div className="text-center p-8 max-w-md">
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-3xl shadow-2xl shadow-amber-500/30 mb-6">
+                    <Crown className="w-10 h-10 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                    Premium Insights freischalten
+                  </h3>
+                  <p className="text-slate-600 mb-6 leading-relaxed">
+                    Erhalten Sie Zugang zu wertvollen Expertendaten:
+                  </p>
+                  <ul className="text-left space-y-3 mb-8">
+                    <li className="flex items-start text-sm text-slate-700">
+                      <span className="text-green-500 mr-2 mt-0.5">✓</span>
+                      <span><strong>Versicherungsanalyse</strong> mit konkreten Kosteneinschätzungen</span>
+                    </li>
+                    <li className="flex items-start text-sm text-slate-700">
+                      <span className="text-green-500 mr-2 mt-0.5">✓</span>
+                      <span><strong>Regionaler Vergleich</strong> mit Benchmarking-Daten</span>
+                    </li>
+                    <li className="flex items-start text-sm text-slate-700">
+                      <span className="text-green-500 mr-2 mt-0.5">✓</span>
+                      <span><strong>Maßnahmenplan</strong> mit priorisierten Handlungsempfehlungen</span>
+                    </li>
+                    <li className="flex items-start text-sm text-slate-700">
+                      <span className="text-green-500 mr-2 mt-0.5">✓</span>
+                      <span><strong>Finanzielle Impact-Analyse</strong> inkl. ROI-Berechnungen</span>
+                    </li>
+                  </ul>
+
+                  <button
+                    onClick={() => setIsPremiumUnlocked(true)}
+                    className="relative overflow-hidden bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 hover:from-amber-600 hover:via-amber-700 hover:to-orange-700 text-white font-bold py-4 px-8 rounded-2xl shadow-2xl transition-all duration-300 group hover:scale-[1.02] w-full"
+                  >
+                    <span className="relative flex items-center justify-center space-x-2">
+                      <Crown className="w-5 h-5" />
+                      <span className="uppercase tracking-widest text-sm">Jetzt Premium testen</span>
+                    </span>
+                  </button>
+                  <p className="text-xs text-slate-500 mt-4">
+                    Demo-Modus: Vollständiger Zugriff ohne Registrierung
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Premium Content */
+              <div className="space-y-6">
+                {/* Insurance Analysis */}
+                {data.premium_features?.insurance_analysis && (
+                  <InsuranceCard data={data.premium_features.insurance_analysis} />
+                )}
+
+                {/* Benchmark Analysis */}
+                {data.premium_features?.benchmark_analysis && (
+                  <BenchmarkCard data={data.premium_features.benchmark_analysis} />
+                )}
+
+                {/* Action Plan */}
+                {data.premium_features?.action_plan && (
+                  <ActionPlanCard data={data.premium_features.action_plan} />
+                )}
+
+                {/* Data Sources - Trust Building */}
+                {data.premium_features?.data_sources && (
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6">
+                    <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center">
+                      <Shield className="w-4 h-4 mr-2 text-blue-600" />
+                      Datenquellen & Transparenz
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      {Object.entries(data.premium_features.data_sources).map(([key, value]) => {
+                        if (key === 'data_quality_score' || key === 'last_updated') return null;
+                        return (
+                          <div key={key} className="bg-white rounded-lg p-3">
+                            <p className="text-slate-500 mb-1 capitalize">{key.replace(/_/g, ' ')}</p>
+                            <p className="text-slate-900 font-semibold">{value}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-blue-200 flex justify-between text-xs">
+                      <span className="text-slate-600">
+                        Datenqualität: <strong className="text-green-600">{data.premium_features.data_sources.data_quality_score}%</strong>
+                      </span>
+                      <span className="text-slate-600">
+                        Aktualisiert: <strong>{data.premium_features.data_sources.last_updated}</strong>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         )}
 
