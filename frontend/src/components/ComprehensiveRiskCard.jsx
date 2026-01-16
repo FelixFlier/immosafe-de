@@ -14,7 +14,8 @@ import BenchmarkCard from './BenchmarkCard';
 import ActionPlanCard from './ActionPlanCard';
 
 export default function ComprehensiveRiskCard({ data, loading, address }) {
-  const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
+  // FREE ACCESS FOR TESTING LAUNCH - Set to true to unlock all premium features
+  const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 

@@ -13,7 +13,7 @@ from typing import Any, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -25,6 +25,7 @@ from services.natural_disaster_service import NaturalDisasterService
 from services.insurance_service import InsuranceService
 from services.comparison_service import ComparisonService
 from services.action_service import ActionService
+from services.pdf_service import PDFReportService
 
 # Load environment variables
 load_dotenv()
@@ -509,6 +510,141 @@ async def analyze_address(
         raise HTTPException(
             status_code=502,
             detail=f"External service error: {str(e)}",
+        )
+
+
+@app.get("/api/report")
+@limiter.limit("10/minute")
+async def generate_pdf_report(
+    request: Request,
+    address: str,
+) -> StreamingResponse:
+    """
+    Generate and download a professional PDF report for an address.
+
+    Query Parameters:
+    - address: The address to analyze (required)
+
+    Returns:
+        PDF file download
+    """
+    try:
+        if not address or len(address) < 5:
+            raise HTTPException(status_code=400, detail="Valid address is required")
+
+        # Perform the same analysis as /api/analyze
+        geo_service = GeoService()
+        weather_service = WeatherService()
+        disaster_service = NaturalDisasterService()
+
+        # Get coordinates
+        coordinates = await geo_service.get_coordinates(address)
+        lat, lng = coordinates["lat"], coordinates["lng"]
+
+        # Fetch all data in parallel
+        elevation_task = geo_service.get_elevation(lat, lng)
+        flood_risk_task = weather_service.get_flood_risk_data(lat, lng)
+        forecast_task = weather_service.get_current_forecast(lat, lng)
+        terrain_task = geo_service.analyze_terrain(lat, lng)
+
+        elevation, flood_data, forecast, terrain_data = await asyncio.gather(
+            elevation_task, flood_risk_task, forecast_task, terrain_task
+        )
+
+        # Calculate risks
+        flood_result = calculate_total_risk(
+            elevation=elevation,
+            rainfall_95th=flood_data["rainfall_95th_percentile"],
+            forecast_rain=forecast["precipitation_3day_sum"],
+            relative_height=terrain_data["relative_height"],
+            terrain_data_available=terrain_data["is_data_available"],
+        )
+
+        comprehensive = await disaster_service.analyze_all_risks(
+            lat, lng,
+            flood_data={
+                "risk_score": flood_result["score"],
+                "risk_level": flood_result["level"],
+            }
+        )
+
+        # Generate premium features
+        insurance_analysis = InsuranceService.analyze_insurance_needs(
+            flood_score=flood_result["score"],
+            storm_score=comprehensive["storm_risk"]["storm_risk_score"],
+            fire_score=comprehensive["fire_risk"]["fire_risk_score"],
+            earthquake_score=comprehensive["earthquake_risk"]["earthquake_risk_score"],
+        )
+
+        benchmark_analysis = ComparisonService.get_benchmark_analysis(
+            lat=lat,
+            lng=lng,
+            address=address,
+            flood_score=flood_result["score"],
+            storm_score=comprehensive["storm_risk"]["storm_risk_score"],
+            fire_score=comprehensive["fire_risk"]["fire_risk_score"],
+            earthquake_score=comprehensive["earthquake_risk"]["earthquake_risk_score"],
+            total_score=comprehensive["total_risk_score"]
+        )
+
+        action_plan = ActionService.generate_action_plan(
+            flood_score=flood_result["score"],
+            storm_score=comprehensive["storm_risk"]["storm_risk_score"],
+            fire_score=comprehensive["fire_risk"]["fire_risk_score"],
+            temperature_score=comprehensive["temperature_risk"]["temp_risk_score"],
+            hail_score=comprehensive["hail_risk"]["hail_risk_score"],
+            earthquake_score=comprehensive["earthquake_risk"]["earthquake_risk_score"],
+            elevation=elevation,
+        )
+
+        # Build analysis data for PDF
+        analysis_data = {
+            "address": address,
+            "coordinates": {"lat": lat, "lng": lng},
+            "total_risk_score": comprehensive["total_risk_score"],
+            "total_risk_level": comprehensive["total_risk_level"],
+            "primary_risks": comprehensive["primary_risks"],
+            "flood_risk": {
+                "score": flood_result["score"],
+                "level": flood_result["level"],
+                "factors": [f"Elevation: {elevation:.1f}m"],
+                "recommendations": ["Elementarversicherung prüfen"]
+            },
+            "storm_risk": comprehensive["storm_risk"],
+            "fire_risk": comprehensive["fire_risk"],
+            "temperature_risk": comprehensive["temperature_risk"],
+            "hail_risk": comprehensive["hail_risk"],
+            "earthquake_risk": comprehensive["earthquake_risk"],
+            "premium_features": {
+                "insurance_analysis": insurance_analysis,
+                "benchmark_analysis": benchmark_analysis,
+                "action_plan": action_plan,
+            }
+        }
+
+        # Generate PDF
+        pdf_bytes = PDFReportService.generate_report(analysis_data, address)
+
+        # Create filename
+        safe_address = address.replace("/", "-").replace("\\", "-")[:50]
+        filename = f"ImmoSafe_Report_{safe_address}.pdf"
+
+        # Return as streaming response
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error generating PDF report: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate PDF report"
         )
 
 
