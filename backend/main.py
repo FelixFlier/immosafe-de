@@ -26,6 +26,8 @@ from services.insurance_service import InsuranceService
 from services.comparison_service import ComparisonService
 from services.action_service import ActionService
 from services.pdf_service import PDFReportService
+from services.geography_service import GeographyService
+from services.historical_events import HistoricalEventsDB
 
 # Load environment variables
 load_dotenv()
@@ -304,14 +306,38 @@ async def analyze_address(
             relative_height=terrain_data["relative_height"],
             terrain_data_available=terrain_data["is_data_available"],
         )
-        
-        # Step 4: Analyze all natural disaster risks
+
+        # Step 3.5: ENHANCED - Comprehensive geographical analysis
+        geo_analysis = GeographyService.get_comprehensive_location_analysis(
+            lat=lat,
+            lng=lng,
+            elevation=elevation,
+            relative_height=terrain_data["relative_height"]
+        )
+
+        # Get historical context
+        historical_context = {
+            "flood": HistoricalEventsDB.get_risk_context("flood", {
+                "state_code": geo_analysis["state_code"],
+                "river_nearby": geo_analysis["nearest_river"]["name"] if geo_analysis["nearest_river"] else None
+            }),
+            "storm": HistoricalEventsDB.get_risk_context("storm", {
+                "lat": lat,
+                "lng": lng
+            }),
+            "earthquake": HistoricalEventsDB.get_risk_context("earthquake", {
+                "earthquake_zone": 2  # Will be updated after earthquake analysis
+            }),
+        }
+
+        # Step 4: Analyze all natural disaster risks with enhanced context
         comprehensive = await disaster_service.analyze_all_risks(
             lat, lng,
             flood_data={
                 "risk_score": flood_result["score"],
                 "risk_level": flood_result["level"],
-            }
+            },
+            geo_context=geo_analysis  # NEW: Pass geographical context
         )
 
         # Step 5: Generate Premium Features

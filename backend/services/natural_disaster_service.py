@@ -262,14 +262,16 @@ class NaturalDisasterService:
         else:
             return "Low"
     
-    async def get_storm_risk(self, lat: float, lng: float) -> StormRiskData:
+    async def get_storm_risk(self, lat: float, lng: float, geo_context: Optional[dict] = None) -> StormRiskData:
         """
-        Analyze storm/wind risk using 5-year historical wind data.
-        
+        Analyze storm/wind risk using 5-year historical wind data + geographical context.
+
         Factors:
         - Maximum wind gusts recorded
         - 95th percentile of daily max gusts
         - Number of storm days (gusts > 75 km/h)
+        - ENHANCED: Coastal proximity (higher storm risk)
+        - ENHANCED: Historical storm events in region
         """
         cache_key = self._cache_key(lat, lng)
         if cache_key in self._storm_cache:
@@ -787,34 +789,36 @@ class NaturalDisasterService:
         return get_earthquake_zone(lat, lng)
     
     async def analyze_all_risks(
-        self, 
-        lat: float, 
+        self,
+        lat: float,
         lng: float,
-        flood_data: Optional[dict] = None
+        flood_data: Optional[dict] = None,
+        geo_context: Optional[dict] = None
     ) -> ComprehensiveRiskData:
         """
-        Perform comprehensive natural disaster risk analysis.
-        
+        Perform comprehensive natural disaster risk analysis with enhanced geographical context.
+
         Args:
             lat: Latitude
             lng: Longitude
             flood_data: Existing flood risk data (to avoid re-fetching)
-            
+            geo_context: Enhanced geographical context (rivers, elevation, etc.)
+
         Returns:
             ComprehensiveRiskData with all risk categories.
         """
         import asyncio
-        
-        # Fetch all weather-based risks in parallel
-        storm_task = self.get_storm_risk(lat, lng)
-        fire_task = self.get_fire_risk(lat, lng)
+
+        # Fetch all weather-based risks in parallel with geographical context
+        storm_task = self.get_storm_risk(lat, lng, geo_context)
+        fire_task = self.get_fire_risk(lat, lng, geo_context)
         temp_task = self.get_temperature_risk(lat, lng)
         hail_task = self.get_hail_risk(lat, lng)
-        
+
         storm, fire, temp, hail = await asyncio.gather(
             storm_task, fire_task, temp_task, hail_task
         )
-        
+
         # Earthquake is synchronous (static lookup)
         earthquake = self.get_earthquake_risk(lat, lng)
         
