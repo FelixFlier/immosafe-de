@@ -287,12 +287,77 @@ Health Check mit API-Key-Status.
 - ✅ Environment-basierte Konfiguration
 - ⚠️ Authentifizierung nicht implementiert (geplant für v3.0)
 
+## 🚀 Launch-Checkliste
+
+### Pre-Launch (Lokal testen)
+- [ ] Backend-Dependencies installieren: `cd backend && pip install -r requirements.txt`
+- [ ] Frontend-Dependencies installieren: `cd frontend && npm install`
+- [ ] `.env` Dateien konfigurieren (siehe Konfiguration-Sektion)
+- [ ] App lokal starten: `./start_app.sh`
+- [ ] PDF-Export testen: Dashboard → Analyse durchführen → PDF-Button klicken
+- [ ] SEO testen: Browser DevTools → Head-Tags überprüfen
+
+### Backend-Deployment
+- [ ] **Plattform wählen**: Render / Railway / DigitalOcean
+- [ ] Environment-Variablen setzen:
+  - `MAPS_API_KEY=your_key`
+  - `ALLOWED_ORIGINS=https://your-frontend-domain.com`
+  - `DEBUG=false`
+- [ ] Deployment durchführen
+- [ ] Health-Check testen: `GET https://your-backend.com/health`
+- [ ] API testen: `POST https://your-backend.com/api/analyze` mit Test-Adresse
+
+### Frontend-Deployment
+- [ ] **Plattform wählen**: Vercel (empfohlen) / Netlify / Cloudflare Pages
+- [ ] Environment-Variablen setzen:
+  - `VITE_GOOGLE_MAPS_API_KEY=your_frontend_key`
+- [ ] Build-Command: `npm run build`
+- [ ] Output-Directory: `dist`
+- [ ] Deployment durchführen
+- [ ] Domain notieren (z.B. `https://immosafe.vercel.app`)
+
+### Post-Deployment Konfiguration
+- [ ] Backend `ALLOWED_ORIGINS` aktualisieren mit Frontend-URL
+- [ ] Backend neu starten
+- [ ] CORS-Test: Frontend → API-Aufruf sollte funktionieren
+- [ ] Vollständige User-Journey testen:
+  - Adresse eingeben
+  - Analyse durchführen
+  - Alle Tabs überprüfen (Übersicht, Kategorien, Premium Insights, Wetterdaten)
+  - PDF herunterladen
+  - Teilen/Link-Funktionalität
+
+### SEO & Marketing
+- [ ] `sitemap.xml` mit echter Domain aktualisieren:
+  - Datei: `frontend/public/sitemap.xml`
+  - Ersetze `https://immosafe.de` mit deiner Domain
+- [ ] `robots.txt` mit echter Domain aktualisieren (optional)
+- [ ] [Google Search Console](https://search.google.com/search-console) einrichten
+  - Domain verifizieren
+  - Sitemap submitten
+- [ ] [Google Analytics](https://analytics.google.com) einrichten (optional)
+- [ ] Social Media Images erstellen:
+  - OG-Image: 1200x630px
+  - Twitter Card: 1200x600px
+  - Speichern als `/frontend/public/og-image.png`
+
+### Monitoring & Analytics
+- [ ] Error-Tracking einrichten (z.B. Sentry)
+- [ ] API-Usage überwachen (Google Maps Quota)
+- [ ] Performance-Monitoring (Vercel Analytics / Plausible)
+
+### Optional: Custom Domain
+- [ ] Domain kaufen (z.B. immosafe.de bei Namecheap/GoDaddy)
+- [ ] DNS konfigurieren:
+  - A-Record für Backend
+  - CNAME für Frontend (Vercel/Netlify)
+- [ ] SSL-Zertifikat (meist automatisch)
+
 ## Bekannte Einschränkungen
 
-- Keine Benutzer-Authentifizierung
-- PDF-Export-Endpoint nicht implementiert
-- In-Memory-Caching (nicht persistent)
-- Keine Datenbank für Audit-Trails
+- Keine Benutzer-Authentifizierung (für Testing-Launch nicht erforderlich)
+- In-Memory-Caching (nicht persistent, reicht für Testing)
+- Keine Datenbank für Audit-Trails (für v2.0 geplant)
 
 ## Roadmap
 
