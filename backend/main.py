@@ -110,6 +110,8 @@ class PremiumFeatures(BaseModel):
     action_plan: Optional[dict] = None
     financial_impact: Optional[dict] = None
     data_sources: Optional[dict] = None
+    geo_analysis: Optional[dict] = None
+    historical_context: Optional[dict] = None
 
 
 class ComprehensiveAnalysisResponse(BaseModel):
@@ -394,10 +396,12 @@ async def analyze_address(
             benchmark_analysis=benchmark_analysis,
             action_plan=action_plan,
             financial_impact=insurance_analysis["financial_impact"],
-            data_sources=data_sources
+            data_sources=data_sources,
+            geo_analysis=geo_analysis,
+            historical_context=historical_context,
         )
 
-        # Build flood risk category
+        # Build flood risk category - enhanced with geo context
         flood_factors = []
         if elevation < 100:
             flood_factors.append(f"Niedrige Lage ({elevation:.0f}m über NN)")
@@ -405,6 +409,22 @@ async def analyze_address(
             flood_factors.append(f"Hohe historische Niederschläge (95. Perzentil: {flood_data['rainfall_95th_percentile']:.1f}mm)")
         if terrain_data["relative_height"] < 2:
             flood_factors.append("Lage in Senke oder Tal")
+
+        # Add geo-context flood factors
+        nearest_river = geo_analysis.get("nearest_river")
+        if nearest_river and nearest_river["distance_km"] < 5:
+            flood_factors.append(
+                f"Flussnähe: {nearest_river['name']} ({nearest_river['distance_km']:.1f}km Entfernung)"
+            )
+        flood_plain = geo_analysis.get("flood_plain", {})
+        if flood_plain.get("in_flood_plain"):
+            flood_factors.append(
+                f"Lage im bekannten Überschwemmungsgebiet: {flood_plain['name']}"
+            )
+        elev_desc = geo_analysis.get("elevation_context", {}).get("description", "")
+        if elev_desc:
+            flood_factors.append(elev_desc.split("|")[0].strip())
+
         if not flood_factors:
             flood_factors.append("Moderate Hochwassergefährdung")
         

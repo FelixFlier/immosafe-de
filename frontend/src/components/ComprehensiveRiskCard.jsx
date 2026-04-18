@@ -12,6 +12,7 @@ import RainfallChart from './RainfallChart';
 import InsuranceCard from './InsuranceCard';
 import BenchmarkCard from './BenchmarkCard';
 import ActionPlanCard from './ActionPlanCard';
+import GeoContextCard from './GeoContextCard';
 
 export default function ComprehensiveRiskCard({ data, loading, address }) {
   // FREE ACCESS FOR TESTING LAUNCH - Set to true to unlock all premium features
@@ -88,8 +89,9 @@ export default function ComprehensiveRiskCard({ data, loading, address }) {
   const tabs = [
     { id: 'overview', label: 'Übersicht' },
     { id: 'categories', label: 'Risikokategorien' },
-    { id: 'premium', label: '✨ Premium Insights', isPremium: true },
-    { id: 'weather', label: 'Wetterdaten' },
+    { id: 'location', label: '📍 Standort' },
+    { id: 'premium', label: '✨ Premium', isPremium: true },
+    { id: 'weather', label: 'Wetter' },
   ];
 
   // Risk categories for the categories tab
@@ -175,6 +177,20 @@ export default function ComprehensiveRiskCard({ data, loading, address }) {
                 defaultExpanded={key === 'flood_risk'}
               />
             ))}
+          </motion.div>
+        )}
+
+        {/* Location / Geo Context Tab */}
+        {activeTab === 'location' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-4"
+          >
+            <GeoContextCard
+              geoAnalysis={data.premium_features?.geo_analysis}
+              historicalContext={data.premium_features?.historical_context}
+            />
           </motion.div>
         )}
 

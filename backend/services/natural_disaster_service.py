@@ -276,11 +276,11 @@ class NaturalDisasterService:
         cache_key = self._cache_key(lat, lng)
         if cache_key in self._storm_cache:
             return self._storm_cache[cache_key]
-        
+
         try:
             end_date = date.today() - timedelta(days=7)
             start_date = end_date - timedelta(days=5 * 365)
-            
+
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.get(
                     self.ARCHIVE_URL,
@@ -295,22 +295,22 @@ class NaturalDisasterService:
                 )
                 response.raise_for_status()
                 data = response.json()
-            
+
             daily = data.get("daily", {})
             gusts = [v for v in daily.get("wind_gusts_10m_max", []) if v is not None]
-            
+
             if not gusts:
                 return self._default_storm_risk()
-            
+
             gusts_array = np.array(gusts)
             max_gust = float(np.max(gusts_array))
             p95_gust = float(np.percentile(gusts_array, 95))
             storm_days = float(np.sum(gusts_array > 75)) / 5  # Per year
-            
+
             # Calculate risk score
             # Max 100 points: 40 for max gust, 30 for p95, 30 for frequency
             score = 0
-            
+
             # Max gust scoring (up to 40 points)
             if max_gust > 130:
                 score += 40
@@ -320,7 +320,7 @@ class NaturalDisasterService:
                 score += 20
             elif max_gust > 60:
                 score += 10
-            
+
             # P95 scoring (up to 30 points)
             if p95_gust > 70:
                 score += 30
@@ -328,7 +328,7 @@ class NaturalDisasterService:
                 score += 20
             elif p95_gust > 40:
                 score += 10
-            
+
             # Storm frequency (up to 30 points)
             if storm_days > 15:
                 score += 30
@@ -336,9 +336,9 @@ class NaturalDisasterService:
                 score += 20
             elif storm_days > 5:
                 score += 10
-            
+
             level = self._get_risk_level(score)
-            
+
             factors = []
             if max_gust > 100:
                 factors.append(f"Orkanböen bis {max_gust:.0f} km/h in den letzten 5 Jahren")
@@ -348,7 +348,18 @@ class NaturalDisasterService:
                 factors.append(f"Regelmäßig starke Böen (95. Perzentil: {p95_gust:.0f} km/h)")
             if not factors:
                 factors.append("Moderate Windverhältnisse in der Region")
-            
+
+            # Apply coastal proximity boost from geo_context
+            if geo_context:
+                coastal = geo_context.get("coastal", {})
+                if coastal.get("is_coastal"):
+                    multiplier = coastal.get("storm_multiplier", 1.0)
+                    score = int(score * multiplier)
+                    factors.append(
+                        f"Küstennähe ({coastal['name']}, {coastal['distance_km']:.0f}km) – deutlich erhöhtes Sturmrisiko"
+                    )
+                    level = self._get_risk_level(score)
+
             recommendations = []
             if score >= 50:
                 recommendations.extend([
@@ -360,7 +371,7 @@ class NaturalDisasterService:
                 recommendations.append("Standard-Gebäudeversicherung mit Sturmschutz")
             else:
                 recommendations.append("Keine besonderen Maßnahmen erforderlich")
-            
+
             result = StormRiskData(
                 max_wind_gust_kmh=round(max_gust, 1),
                 avg_annual_storm_days=round(storm_days, 1),
@@ -370,10 +381,10 @@ class NaturalDisasterService:
                 factors=factors,
                 recommendations=recommendations,
             )
-            
+
             self._storm_cache[cache_key] = result
             return result
-            
+
         except Exception as e:
             logger.error(f"Storm risk analysis failed: {e}")
             return self._default_storm_risk()
@@ -389,10 +400,11 @@ class NaturalDisasterService:
             recommendations=["Standard-Gebäudeversicherung empfohlen"],
         )
     
-    async def get_fire_risk(self, lat: float, lng: float) -> FireRiskData:
+    async def get_fire_risk(self, lat: float, lng: float, geo_context: Optional[dict] = None) -> FireRiskData:
         """
         Analyze wildfire risk using temperature, humidity, and precipitation data.
         Calculates simplified Fire Weather Index (FWI).
+        ENHANCED: Applies wildfire zone multiplier from geo_context.
         """
         cache_key = self._cache_key(lat, lng)
         if cache_key in self._fire_cache:
@@ -470,10 +482,10 @@ class NaturalDisasterService:
                 regional_factor = "Brandenburg - erhöhtes Waldbrandrisiko (Kiefernwälder)"
             else:
                 regional_factor = None
-            
+
             score = min(100, score)
             level = self._get_risk_level(score)
-            
+
             factors = []
             if avg_summer_temp > 27:
                 factors.append(f"Hohe Sommertemperaturen (Ø {avg_summer_temp:.1f}°C)")
@@ -483,7 +495,18 @@ class NaturalDisasterService:
                 factors.append(regional_factor)
             if not factors:
                 factors.append("Moderate Waldbrandgefahr in der Region")
-            
+
+            # Apply wildfire zone multiplier from geo_context
+            if geo_context:
+                wildfire_zone = geo_context.get("wildfire_zone", {})
+                if wildfire_zone.get("in_wildfire_zone"):
+                    multiplier = wildfire_zone.get("risk_multiplier", 1.0)
+                    score = min(100, int(score * multiplier))
+                    factors.append(
+                        f"Bekanntes Waldbrandgebiet: {wildfire_zone['name']} ({wildfire_zone['distance_km']:.0f}km)"
+                    )
+                    level = self._get_risk_level(score)
+
             recommendations = []
             if score >= 50:
                 recommendations.extend([
@@ -821,7 +844,7 @@ class NaturalDisasterService:
 
         # Earthquake is synchronous (static lookup)
         earthquake = self.get_earthquake_risk(lat, lng)
-        
+
         # Calculate total weighted risk score
         # Weights based on frequency and impact in Germany
         weights = {
@@ -832,8 +855,22 @@ class NaturalDisasterService:
             "fire": 0.10,       # Regional, less common
             "earthquake": 0.05,  # Very rare in Germany
         }
-        
+
         flood_score = flood_data.get("risk_score", 30) if flood_data else 30
+
+        # Apply geo_context multipliers to flood score
+        if geo_context:
+            flood_plain = geo_context.get("flood_plain", {})
+            elevation_ctx = geo_context.get("elevation_context", {})
+
+            if flood_plain.get("in_flood_plain"):
+                multiplier = flood_plain.get("risk_multiplier", 1.0)
+                flood_score = min(100, int(flood_score * multiplier))
+
+            # Apply elevation-based flood risk factor
+            elev_factor = elevation_ctx.get("flood_risk_factor", 1.0)
+            if elev_factor != 1.0:
+                flood_score = min(100, int(flood_score * elev_factor))
         
         total_score = int(
             flood_score * weights["flood"] +
