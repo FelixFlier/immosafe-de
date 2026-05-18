@@ -1,110 +1,108 @@
 # ImmoSafe DE 🏠🌊
 
-**Immobilien-Risikoanalyse für Hochwasser und Naturkatastrophen in Deutschland**
+> A full-stack web app that helps prospective German home-buyers assess flood and natural-disaster risk for any address — before they sign.
 
-ImmoSafe ist eine Webanwendung, die potenzielle Immobilienkäufer dabei unterstützt, das Risiko von Naturkatastrophen wie Hochwasser für eine bestimmte Adresse in Deutschland zu bewerten.
+![Python](https://img.shields.io/badge/python-3.11+-blue.svg) ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white) ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white) ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white) ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## Features
+## 🎯 Why this exists
 
-- 🔍 **Adresssuche** mit Google Places Autocomplete
-- 🗺️ **Interaktive Kartenansicht** zur Visualisierung des Standorts
-- 📊 **Risikoanalyse** basierend auf:
-  - Höhenlage (Elevation)
-  - Historische Niederschlagsdaten
-  - Wettervorhersagen
-- 🎯 **Risikobewertung** mit klarer visueller Darstellung
+Climate change is making natural-disaster risk a first-class concern for German real estate, but buyers have no easy way to assess it for a specific address. Insurance data is opaque, official flood maps are clunky, and weather forecasts only cover days — not lifetimes of ownership. ImmoSafe gives buyers a clear, address-level risk readout in under 10 seconds.
 
-## Tech Stack
+## ✨ Features
 
-### Backend
-- **Python 3.11+**
-- **FastAPI** - Modernes, schnelles Web-Framework
-- **Uvicorn** - ASGI Server
+- 🔍 **Address autocomplete** powered by Google Places
+- 🗺️ **Interactive map view** showing the property's location and surroundings
+- 📊 **Risk analysis** combining:
+  - Elevation data (lower-elevation properties = higher flood exposure)
+  - Historical precipitation patterns
+  - Short-term weather forecasts
+- 🎯 **Clear visual risk score** instead of raw numbers
 
-### Frontend
-- **React 18** - UI Library
-- **Vite** - Build Tool & Dev Server
-- **Google Maps API** - Karten & Geocoding
+## 🛠 Tech stack
 
-## Installation
+**Backend**
+- Python 3.11+
+- FastAPI (modern async web framework)
+- Uvicorn (ASGI server)
 
-### Backend
+**Frontend**
+- React 18
+- Vite (build tool + dev server)
+- Google Maps API (mapping + geocoding)
 
+## 🏗 Project structure
+
+```
+immosafe-de/
+├── backend/
+│   ├── main.py                          # FastAPI app entry
+│   ├── services/
+│   │   ├── geo_service.py               # Geocoding & elevation
+│   │   ├── weather_service.py           # Weather data
+│   │   └── natural_disaster_service.py  # Risk scoring
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/                  # React components
+│   │   ├── pages/                       # Routed views
+│   │   └── App.jsx
+│   └── package.json
+└── start_app.sh                         # One-command launcher
+```
+
+## 🚀 Setup
+
+**Backend**
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Frontend
-
+**Frontend**
 ```bash
 cd frontend
 npm install
 ```
 
-## Konfiguration
-
-Erstelle eine `.env` Datei im `frontend` Verzeichnis:
-
-```env
-VITE_GOOGLE_MAPS_API_KEY=dein_google_maps_api_key
+**Configuration** — create `frontend/.env`:
+```
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 ```
 
-## Starten
-
-### Entwicklungsmodus
-
+**Run** (from project root):
 ```bash
-# Im Projektroot
 ./start_app.sh
 ```
 
-Oder manuell:
-
+Or manually:
 ```bash
-# Terminal 1 - Backend (Port 8001)
-cd backend
-source venv/bin/activate
+# Terminal 1 — Backend (port 8001)
+cd backend && source venv/bin/activate
 uvicorn main:app --reload --port 8001
 
-# Terminal 2 - Frontend (Port 5173)
-cd frontend
-npm run dev
+# Terminal 2 — Frontend (port 5173)
+cd frontend && npm run dev
 ```
 
-### Zugriff
+Open <http://localhost:5173> in your browser.
 
-Öffne http://localhost:5173 im Browser.
+## 📊 What I learned (PM perspective)
 
-## Projektstruktur
+This was my first end-to-end full-stack project. Lessons that translate to PM work:
 
-```
-immosafe_prod/
-├── backend/
-│   ├── main.py                 # FastAPI App
-│   ├── services/
-│   │   ├── geo_service.py      # Geocoding & Elevation
-│   │   ├── weather_service.py  # Wetterdaten
-│   │   └── natural_disaster_service.py
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/         # React Components
-│   │   ├── pages/              # Seiten
-│   │   ├── App.jsx             # Haupt-App
-│   │   └── main.jsx            # Entry Point
-│   ├── index.html
-│   └── package.json
-├── start_app.sh                # Unified Start Script
-└── README.md
-```
+- **External data is the moat.** The product's value comes from integrating multiple government and weather APIs — the React UI is just the wrapper. PMs in this space should care about data-source quality, not pixel-pushing.
+- **Abstraction levels matter.** Backend services (`geo_service`, `weather_service`, `natural_disaster_service`) are each independently testable. That separation is what makes it possible to swap data sources without rewriting the UI.
+- **Risk communication is hard.** Showing "Flood risk: 0.37" means nothing to a buyer. The product's job is to translate that into a decision-useful signal.
 
-## Lizenz
+## 🗺 Roadmap
 
-MIT License
+- [ ] Add historical flood-incident data (CEDIM, BKG flood maps)
+- [ ] Earthquake & subsidence risk modules
+- [ ] PDF export for buyers to share with insurance/banks
+- [ ] Multi-language support (English first)
 
----
+## 📝 License
 
-Entwickelt mit ❤️ für sichere Immobilienentscheidungen.
+MIT
